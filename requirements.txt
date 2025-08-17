@@ -1,20 +1,7 @@
-# requirements.txt (revised)
+# requirements.txt (minimal & compatible)
 
-# 데이터 처리
-pandas>=1.3.0,<2.0.0         # pandas 1.x 대에서 안정적으로 동작
-numpy>=1.21.0,<2.0.0        # numpy 1.x 대 고정
+# Web UI
+streamlit>=1.24.0,<2.0.0
 
-# 시세 조회
-yfinance>=0.2.4,<0.3.0      # 다음 마이너리 릴리스 호환 유지
-
-# HTTP 요청
-requests>=2.26.0,<3.0.0     # 2.x 대 유지
-
-# 웹 UI
-streamlit>=1.10.0,<2.0.0    # Streamlit 1.x 대 유지
-
-# 과학 계산
-scipy>=1.10.1,<2.0.0        # 1.10.1 이상, 2.0 미만으로 고정
-
-# 시계열 예측
-statsmodels @ git+https://github.com/statsmodels/statsmodels.git@main#egg=statsmodels
+# Data handling
+pandas>=2.0.0,<2.3.0
