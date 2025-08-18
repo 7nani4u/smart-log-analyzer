@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 import pandas as pd
 
-st.set_page_config(page_title="범용 로그 분석기 + Puter.js(무제한/무키) AI 보고서", layout="wide")
+st.set_page_config(page_title="범용 로그 AI 분석기", layout="wide")
 
 # ---------------------------
 # 공통 상수·정규식
@@ -254,9 +254,9 @@ FIXED_PROMPT = """당신은 로그 분석 전문가입니다.
 # ---------------------------
 # UI
 # ---------------------------
-st.title("📄 범용 로그 분석기 + 🌐 Puter.js(무제한/무키) AI 보고서")
+st.title("📄 범용 로그 AI 분석기")
 
-tab1, tab2 = st.tabs(["로그 업로드·전처리", "AI 분석 (키 없이 Puter.js)"])
+tab1, tab2 = st.tabs(["로그 업로드·전처리", "AI 분석"])
 
 with tab1:
     st.caption("여러 개의 텍스트/CSV/JSON/NDJSON/로그 파일을 업로드하면 자동으로 시간 순으로 정렬·정규화합니다.")
