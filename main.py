@@ -441,7 +441,7 @@ with tab2:
         }}
         messages.push({{ role: "user", content: user_content }});
 
-        status.textContent = `청크 ${{i + 1}} / ${{total}} 분석 중… 이전 내용을 바탕으로 보고서를 다시 생성합니다.`;
+        status.textContent = `청크 ${'{'}i + 1{'}'} / ${'{'}total{'}'} 분석 중… 이전 내용을 바탕으로 보고서를 다시 생성합니다.`;
         out.innerHTML = ''; // 이전 출력을 지우고 새로 생성
         err.textContent = '';
 
@@ -462,7 +462,7 @@ with tab2:
           messages.push({{ role: "assistant", content: fullResponseContent }});
         }} catch (e) {{
           console.error(e);
-          err.textContent = `스트리밍 오류 (청크 ${{i + 1}}): ` + (e?.message || e?.toString?.() || "알 수 없는 오류");
+          err.textContent = `스트리밍 오류 (청크 ${'{'}i + 1{'}'}): ` + (e?.message || e?.toString?.() || "알 수 없는 오류");
           break; // Exit loop on error
         }}
       }}
