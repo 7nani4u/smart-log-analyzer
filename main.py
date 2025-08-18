@@ -300,7 +300,7 @@ with tab1:
         st.info("파일을 업로드하세요.")
 
 with tab2:
-    st.subheader("🧠 Puter.js로 AI 분석 실행 (No API Key)")
+    st.subheader("🧠 AI 분석 실행 (No API Key)")
     st.caption("아래 버튼을 누르면 브라우저(iframe)에서 Puter.js가 실행되어 보고서를 생성합니다. "
                "기업망에서 차단될 경우 IT팀에 js.puter.com 허용(CSP/프록시) 요청이 필요할 수 있습니다.")
 
