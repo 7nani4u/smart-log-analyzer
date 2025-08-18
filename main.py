@@ -406,8 +406,6 @@ with tab2:
   function esc(s) {{
     return (s||'').replace(/[&<>]/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;'}}[c]));
   }}
-  function append(txt) {{ out.innerHTML += esc(txt); }}
-  function appendLn(txt) {{ out.innerHTML += esc(txt) + "<br>"; }}
 
   try {{
     const raw = atob("{b64}");
@@ -425,65 +423,52 @@ with tab2:
 
     status.textContent = `총 ${'{'}total{'}'}개 청크 분석을 시작합니다… (모델: ${'{'}options.model||'기본'{'}'})`;
 
-    // 1) 첫 청크: 시스템+유저 메시지로 시작
-    let messages = [
-      {{ role: "system", content: fixed }},
-      {{ role: "user", content: `아래는 정규화된 증거 라인입니다. [파일:라인@ISO8601Z] 메시지 형식을 따릅니다. 총 ${'{'}total{'}'}개 청크 중 1개를 보냅니다. 이를 기반으로 전체 보고서의 뼈대를 작성하고, 인용 포맷을 유지하세요.\\n\\n` + (chunks[0]||'') }}
-    ];
-
     (async () => {{
-      try {{
-        let resp = await puter.ai.chat(messages, testMode, {{ ...options, stream: true }});
-        for await (const part of resp) {{
-          const t = (typeof part === 'string') ? part
-            : (part && part.text) ? part.text
-            : (part && part.message && typeof part.message.content === 'string') ? part.message.content
-            : (part && part.message && Array.isArray(part.message.content)) ? part.message.content.map(c => (typeof c === 'string' ? c : (c && c.text) || '')).join('')
-            : '';
-          if (t) append(t.replaceAll("\\n","<br>"));
+      let messages = [{{ role: "system", content: fixed }}];
+
+      for (let i = 0; i < total; i++) {{
+        let user_content;
+        if (i === 0) {{
+          user_content = `아래는 정규화된 증거 라인입니다. [파일:라인@ISO8601Z] 메시지 형식을 따릅니다. 총 ${'{'}total{'}'}개 청크 중 1개를 보냅니다. 이를 기반으로 전체 보고서의 뼈대를 작성하고, 인용 포맷을 유지하세요.\\n\\n` + (chunks[i] || '');
+        }} else {{
+          user_content = [
+            "이어서 청크 " + (i + 1) + " / " + total + " 를 반영하여 이전 답변을 보완/정교화하여 완전한 단일 보고서를 다시 작성하세요.",
+            "중복 내용은 요약하고, 증거 인용은 필수로 유지하세요.",
+            "이전 답변의 모든 내용을 포함해야 합니다. 이것은 추가가 아니라 업데이트입니다.",
+            "",
+            chunks[i] || ""
+          ].join("\\n");
         }}
-        append("<br>");
-      }} catch(e) {{
-        console.error(e);
-        err.textContent = "스트리밍 오류: " + (e?.message || e?.toString?.() || "알 수 없는 오류");
-      }}
+        messages.push({{ role: "user", content: user_content }});
 
-      // 2) 나머지 청크는 연속 작업
-      for (let i = 1; i < total; i++) {{
-        status.textContent = `청크 ${{i+1}} / ${{total}} 분석 중…`;
-        const followUser = [
-          "이어서 청크 " + (i+1) + " / " + total + " 를 반영하여 동일한 구조로 보완/정교화하세요.",
-          "중복 내용은 요약하고, 증거 인용은 필수로 유지하세요.",
-          "마지막 청크에서는 전체를 일관된 하나의 보고서로 재정리하세요.",
-          "",
-          chunks[i] || ""
-        ].join("\\n");
+        status.textContent = `청크 ${{i + 1}} / ${{total}} 분석 중… 이전 내용을 바탕으로 보고서를 다시 생성합니다.`;
+        out.innerHTML = ''; // 이전 출력을 지우고 새로 생성
+        err.textContent = '';
 
+        let fullResponseContent = "";
         try {{
-          let r2 = await puter.ai.chat([
-            {{ role: "system", content: fixed }},
-            {{ role: "user", content: followUser }}
-          ], testMode, {{ ...options, stream: true }});
-
-          for await (const part of r2) {{
+          let resp = await puter.ai.chat(messages, testMode, {{ ...options, stream: true }});
+          for await (const part of resp) {{
             const t = (typeof part === 'string') ? part
               : (part && part.text) ? part.text
               : (part && part.message && typeof part.message.content === 'string') ? part.message.content
               : (part && part.message && Array.isArray(part.message.content)) ? part.message.content.map(c => (typeof c === 'string' ? c : (c && c.text) || '')).join('')
               : '';
-            if (t) append(t.replaceAll("\\n","<br>"));
+            if (t) {{
+              fullResponseContent += t;
+              out.innerHTML += esc(t).replaceAll("\\n", "<br>");
+            }}
           }}
-          append("<br>");
-        }} catch(e) {{
+          messages.push({{ role: "assistant", content: fullResponseContent }});
+        }} catch (e) {{
           console.error(e);
-          err.textContent = "연속 작업 오류(청크 " + (i+1) + "): " + (e?.message || e?.toString?.() || "알 수 없는 오류");
-          break;
+          err.textContent = `스트리밍 오류 (청크 ${{i + 1}}): ` + (e?.message || e?.toString?.() || "알 수 없는 오류");
+          break; // Exit loop on error
         }}
       }}
-
       status.textContent = "분석 완료";
     }})();
-  }} catch(e) {{
+  }} catch (e) {{
     console.error(e);
     err.textContent = "오류: " + (e?.message || e?.toString?.() || "알 수 없는 오류");
   }}
