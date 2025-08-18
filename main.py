@@ -16,7 +16,7 @@ AM_PM_MAP = {"오전": "AM", "오후": "PM"}
 
 ISO_TS_RE = re.compile(r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})")
 KR_TS_RE = re.compile(r"(\d{4}-\d{2}-\d{2})\s*(오전|오후)\s*(\d{1,2}:\d{2}:\d{2})")
-YMD_HMS_RE = re.compile(r"\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})[ T](\d{1,2}:\d{2}:\d{2})\b")  # naive
+YMD_HMS_RE = re.compile(r"\b(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})[ T](\d{1,2}:\d{2}:\d{2})\b")  # naive
 
 JSON_TIME_KEYS = [
     "timestamp", "time", "eventTime", "event_time", "logged_at", "created_at",
@@ -387,17 +387,17 @@ with tab2:
 
             # HTML/JS: escape + 줄바꿈 처리, 진행률/오류 표시 강화
             html_code = f"""
-<div style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;">
+<div style=\"font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;\">
   <p><strong>브라우저 내 Puter.js 실행 중…</strong></p>
-  <div id="status" style="margin:6px 0;color:#666;">초기화 중…</div>
-  <pre id="out" style="white-space:pre-wrap;background:#070c1a;color:#e8eefc;border-radius:8px;padding:14px;min-height:360px;"></pre>
-  <pre id="err" style="white-space:pre-wrap;color:#ff9aa2;"></pre>
-  <div style="font-size:12px;color:#888;margin-top:6px;">
+  <div id=\"status\" style=\"margin:6px 0;color:#666;\">초기화 중…</div>
+  <pre id=\"out\" style=\"white-space:pre-wrap;background:#070c1a;color:#e8eefc;border-radius:8px;padding:14px;min-height:360px;\"></pre>
+  <pre id=\"err\" style=\"white-space:pre-wrap;color:#ff9aa2;\"></pre>
+  <div style=\"font-size:12px;color:#888;margin-top:6px;\">
     네트워크/CSP 문제로 Puter.js가 로드되지 않으면 IT팀에 <code>https://js.puter.com/v2/</code> 허용을 요청하세요.
   </div>
 </div>
 
-<script src="https://js.puter.com/v2/"></script>
+<script src=\"https://js.puter.com/v2/\"></script>
 <script>
 (function() {{
   const out = document.getElementById('out');
@@ -408,7 +408,7 @@ with tab2:
   }}
 
   try {{
-    const raw = atob("{b64}");
+    const raw = atob(\"{b64}\");
     const data = JSON.parse(raw);
     const fixed = data.fixed_prompt;
     const chunks = data.chunks || [];
@@ -417,14 +417,14 @@ with tab2:
     const testMode = !!data.testMode;
 
     if (!window.puter || !puter.ai || !puter.ai.chat) {{
-      err.textContent = "Puter.js가 로드되지 않았습니다. 네트워크 또는 브라우저 보안 정책(CSP)을 확인하세요.";
+      err.textContent = \"Puter.js가 로드되지 않았습니다. 네트워크 또는 브라우저 보안 정책(CSP)을 확인하세요.\";
       return;
     }}
 
     status.textContent = `총 ${'{'}total{'}'}개 청크 분석을 시작합니다… (모델: ${'{'}options.model||'기본'{'}'})`;
 
     (async () => {{
-      let messages = [{{ role: "system", content: fixed }}];
+      let messages = [{{ role: \"system\", content: fixed }}];
 
       for (let i = 0; i < total; i++) {{
         let user_content;
@@ -432,20 +432,20 @@ with tab2:
           user_content = `아래는 정규화된 증거 라인입니다. [파일:라인@ISO8601Z] 메시지 형식을 따릅니다. 총 ${'{'}total{'}'}개 청크 중 1개를 보냅니다. 이를 기반으로 전체 보고서의 뼈대를 작성하고, 인용 포맷을 유지하세요.\\n\\n` + (chunks[i] || '');
         }} else {{
           user_content = [
-            "이어서 청크 " + (i + 1) + " / " + total + " 를 반영하여 이전 답변을 보완/정교화하여 완전한 단일 보고서를 다시 작성하세요.",
-            "중복 내용은 요약하고, 증거 인용은 필수로 유지하세요.",
-            "이전 답변의 모든 내용을 포함해야 합니다. 이것은 추가가 아니라 업데이트입니다.",
-            "",
-            chunks[i] || ""
-          ].join("\\n");
+            \"이어서 청크 \" + (i + 1) + \" / \" + total + \" 를 반영하여 이전 답변을 보완/정교화하여 완전한 단일 보고서를 다시 작성하세요.\",
+            \"중복 내용은 요약하고, 증거 인용은 필수로 유지하세요.\",
+            \"이전 답변의 모든 내용을 포함해야 합니다. 이것은 추가가 아니라 업데이트입니다.\",
+            \"\",
+            chunks[i] || \"\"
+          ].join(\"\\n\");
         }}
-        messages.push({{ role: "user", content: user_content }});
+        messages.push({{ role: \"user\", content: user_content }});
 
         status.textContent = `청크 ${'{'}i + 1{'}'} / ${'{'}total{'}'} 분석 중… 이전 내용을 바탕으로 보고서를 다시 생성합니다.`;
         out.innerHTML = ''; // 이전 출력을 지우고 새로 생성
         err.textContent = '';
 
-        let fullResponseContent = "";
+        let fullResponseContent = \"\";
         try {{
           let resp = await puter.ai.chat(messages, testMode, {{ ...options, stream: true }});
           for await (const part of resp) {{
@@ -456,23 +456,23 @@ with tab2:
               : '';
             if (t) {{
               fullResponseContent += t;
-              out.innerHTML += esc(t).replaceAll("\\n", "<br>");
+              out.innerHTML += esc(t).replaceAll(\"\\\\n\", \"<br>\");
             }}
           }}
-          messages.push({{ role: "assistant", content: fullResponseContent }});
+          messages.push({{ role: \"assistant\", content: fullResponseContent }});
         }} catch (e) {{
           console.error(e);
-          err.textContent = `스트리밍 오류 (청크 ${'{'}i + 1{'}'}): ` + (e?.message || e?.toString?.() || "알 수 없는 오류");
+          err.textContent = `스트리밍 오류 (청크 ${'{'}i + 1{'}'}): ` + (e?.message || e?.toString?.() || \"알 수 없는 오류\");
           break; // Exit loop on error
         }}
       }}
-      status.textContent = "분석 완료";
+      status.textContent = \"분석 완료\";
     }})();
   }} catch (e) {{
     console.error(e);
-    err.textContent = "오류: " + (e?.message || e?.toString?.() || "알 수 없는 오류");
+    err.textContent = \"오류: \" + (e?.message || e?.toString?.() || \"알 수 없는 오류\");
   }}
-})();
+}})();
 </script>
 """
             st_html(html_code, height=output_height + 140, scrolling=True)
