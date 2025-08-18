@@ -332,6 +332,7 @@ with tab2:
     auto_chunk_limit = st.number_input("브라우저로 전송할 최대 바이트(청크 단위, 권장 120000~240000)", 
                                        min_value=50000, max_value=500000, value=160000, step=10000)
     test_mode = st.toggle("테스트 모드 사용(요청 크레딧 소모 위험 최소화)", value=False, help="Puter testMode (일부 환경에서만 적용)")
+    stream_display = st.toggle("실시간 스트리밍 표시(기본: 비활성)", value=False, help="해제 시 모든 청크를 통합 분석한 뒤 한 번만 최종 결과를 화면에 출력합니다.")
 
     run = st.button("🚀 분석 시작")
     output_height = 560
@@ -381,100 +382,113 @@ with tab2:
                     "temperature": temperature,
                     **({"max_tokens": max_tokens} if max_tokens > 0 else {})
                 },
+                "ui": {"stream_display": bool(stream_display)},
                 "testMode": bool(test_mode)
             }
             b64 = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
 
-            # HTML/JS: escape + 줄바꿈 처리, 진행률/오류 표시 강화
-            html_code = f"""
-<div style=\"font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;\">
+            # HTML/JS 템플릿: f-string 충돌 방지(자리표시자 __B64__ 치환)
+            html_tpl = r"""
+<div style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;">
   <p><strong>브라우저 내 Puter.js 실행 중…</strong></p>
-  <div id=\"status\" style=\"margin:6px 0;color:#666;\">초기화 중…</div>
-  <pre id=\"out\" style=\"white-space:pre-wrap;background:#070c1a;color:#e8eefc;border-radius:8px;padding:14px;min-height:360px;\"></pre>
-  <pre id=\"err\" style=\"white-space:pre-wrap;color:#ff9aa2;\"></pre>
-  <div style=\"font-size:12px;color:#888;margin-top:6px;\">
-    네트워크/CSP 문제로 Puter.js가 로드되지 않으면 IT팀에 <code>https://js.puter.com/v2/</code> 허용을 요청하세요.
+  <div id="status" style="margin:6px 0;color:#666;">초기화 중…</div>
+  <pre id="out" style="white-space:pre-wrap;background:#070c1a;color:#e8eefc;border-radius:8px;padding:14px;min-height:360px;"></pre>
+  <pre id="err" style="white-space:pre-wrap;color:#ff9aa2;"></pre>
+  <div style="font-size:12px;color:#888;margin-top:6px;">
+    네트워크/CSP 문제로 Puter.js가 로드되지 않았으면 IT팀에 <code>https://js.puter.com/v2/</code> 허용을 요청하세요.
   </div>
 </div>
 
-<script src=\"https://js.puter.com/v2/\"></script>
+<script src="https://js.puter.com/v2/"></script>
 <script>
-(function() {{
+(function() {
   const out = document.getElementById('out');
   const err = document.getElementById('err');
   const status = document.getElementById('status');
-  function esc(s) {{
-    return (s||'').replace(/[&<>]/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;'}}[c]));
-  }}
+  function esc(s) {
+    return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  }
 
-  try {{
-    const raw = atob(\"{b64}\");
+  try {
+    const raw = atob("__B64__");
     const data = JSON.parse(raw);
     const fixed = data.fixed_prompt;
     const chunks = data.chunks || [];
     const total = data.chunk_count || chunks.length;
-    const options = data.options || {{}};
+    const options = data.options || {};
     const testMode = !!data.testMode;
+    const streamDisplay = !!(data.ui && data.ui.stream_display);
 
-    if (!window.puter || !puter.ai || !puter.ai.chat) {{
-      err.textContent = \"Puter.js가 로드되지 않았습니다. 네트워크 또는 브라우저 보안 정책(CSP)을 확인하세요.\";
+    if (!window.puter || !puter.ai || !puter.ai.chat) {
+      err.textContent = "Puter.js가 로드되지 않았습니다. 네트워크 또는 브라우저 보안 정책(CSP)을 확인하세요.";
       return;
-    }}
+    }
 
-    status.textContent = `총 ${'{'}total{'}'}개 청크 분석을 시작합니다… (모델: ${'{'}options.model||'기본'{'}'})`;
+    status.textContent = `총 ${total}개 청크를 통합 분석합니다… (모델: ${options.model||'기본'})`;
 
-    (async () => {{
-      let messages = [{{ role: \"system\", content: fixed }}];
+    (async () => {
+      let messages = [{ role: "system", content: fixed }];
+      let finalResponse = ""; // 마지막(통합) 응답만 화면에 출력
 
-      for (let i = 0; i < total; i++) {{
+      // 초기화: 진행 중 중간결과를 숨기고 싶으면 out을 비워둠
+      out.innerHTML = '';
+
+      for (let i = 0; i < total; i++) {
         let user_content;
-        if (i === 0) {{
-          user_content = `아래는 정규화된 증거 라인입니다. [파일:라인@ISO8601Z] 메시지 형식을 따릅니다. 총 ${'{'}total{'}'}개 청크 중 1개를 보냅니다. 이를 기반으로 전체 보고서의 뼈대를 작성하고, 인용 포맷을 유지하세요.\\n\\n` + (chunks[i] || '');
-        }} else {{
+        if (i === 0) {
+          user_content = `아래는 정규화된 증거 라인입니다. [파일:라인@ISO8601Z] 메시지 형식을 따릅니다. 총 ${total}개 청크 중 1개를 보냅니다. 이를 기반으로 전체 보고서의 뼈대를 작성하고, 인용 포맷을 유지하세요.\n\n` + (chunks[i] || '');
+        } else {
           user_content = [
-            \"이어서 청크 \" + (i + 1) + \" / \" + total + \" 를 반영하여 이전 답변을 보완/정교화하여 완전한 단일 보고서를 다시 작성하세요.\",
-            \"중복 내용은 요약하고, 증거 인용은 필수로 유지하세요.\",
-            \"이전 답변의 모든 내용을 포함해야 합니다. 이것은 추가가 아니라 업데이트입니다.\",
-            \"\",
-            chunks[i] || \"\"
-          ].join(\"\\n\");
-        }}
-        messages.push({{ role: \"user\", content: user_content }});
+            "이어서 청크 " + (i + 1) + " / " + total + " 를 반영하여 이전 답변을 보완/정교화하여 완전한 단일 보고서를 다시 작성하세요.",
+            "중복 내용은 요약하고, 증거 인용은 필수로 유지하세요.",
+            "이전 답변의 모든 내용을 포함해야 합니다. 이것은 추가가 아니라 업데이트입니다.",
+            "",
+            chunks[i] || ""
+          ].join("\n");
+        }
+        messages.push({ role: "user", content: user_content });
 
-        status.textContent = `청크 ${'{'}i + 1{'}'} / ${'{'}total{'}'} 분석 중… 이전 내용을 바탕으로 보고서를 다시 생성합니다.`;
-        out.innerHTML = ''; // 이전 출력을 지우고 새로 생성
-        err.textContent = '';
-
-        let fullResponseContent = \"\";
-        try {{
-          let resp = await puter.ai.chat(messages, testMode, {{ ...options, stream: true }});
-          for await (const part of resp) {{
+        status.textContent = `청크 ${i + 1} / ${total} 분석 중…`;
+        let fullResponseContent = "";
+        try {
+          let resp = await puter.ai.chat(messages, testMode, { ...options, stream: true });
+          for await (const part of resp) {
             const t = (typeof part === 'string') ? part
               : (part && part.text) ? part.text
               : (part && part.message && typeof part.message.content === 'string') ? part.message.content
               : (part && part.message && Array.isArray(part.message.content)) ? part.message.content.map(c => (typeof c === 'string' ? c : (c && c.text) || '')).join('')
               : '';
-            if (t) {{
+            if (t) {
               fullResponseContent += t;
-              out.innerHTML += esc(t).replaceAll(\"\\\\n\", \"<br>\");
-            }}
-          }}
-          messages.push({{ role: \"assistant\", content: fullResponseContent }});
-        }} catch (e) {{
+              if (streamDisplay) {
+                // 실시간 표시 모드에서만 중간 결과를 스트리밍
+                out.innerHTML += esc(t).replaceAll("\n", "<br>");
+              }
+            }
+          }
+          messages.push({ role: "assistant", content: fullResponseContent });
+          finalResponse = fullResponseContent; // 매 루프의 응답을 갱신 (마지막 것이 최종)
+        } catch (e) {
           console.error(e);
-          err.textContent = `스트리밍 오류 (청크 ${'{'}i + 1{'}'}): ` + (e?.message || e?.toString?.() || \"알 수 없는 오류\");
-          break; // Exit loop on error
-        }}
-      }}
-      status.textContent = \"분석 완료\";
-    }})();
-  }} catch (e) {{
+          err.textContent = `스트리밍 오류 (청크 ${i + 1}): ` + (e?.message || e?.toString?.() || "알 수 없는 오류");
+          break; // 오류 시 루프 종료
+        }
+      }
+      status.textContent = "분석 완료";
+
+      if (!streamDisplay) {
+        // 한 번에 최종 결과만 표시
+        out.innerHTML = esc(finalResponse).replaceAll("\n", "<br>");
+      }
+    })();
+  } catch (e) {
     console.error(e);
-    err.textContent = \"오류: \" + (e?.message || e?.toString?.() || \"알 수 없는 오류\");
-  }}
-}})();
+    err.textContent = "오류: " + (e?.message || e?.toString?.() || "알 수 없는 오류");
+  }
+})();
 </script>
 """
+            html_code = html_tpl.replace("__B64__", b64)
             st_html(html_code, height=output_height + 140, scrolling=True)
     else:
         st.info("전처리된 로그를 바탕으로 브라우저에서 Puter.js가 실행됩니다. 먼저 파일을 업로드한 뒤 [분석 시작]을 눌러주세요.")
